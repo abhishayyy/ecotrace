@@ -252,24 +252,44 @@ function setupWizardUI() {
     errorMsg.style.display = "none";
     
     try {
-      // Extract config JSON block
-      let configObj = null;
-      if (inputArea.includes("{") && inputArea.includes("}")) {
-        const jsonStr = inputArea.substring(inputArea.indexOf("{"), inputArea.lastIndexOf("}") + 1);
-        // Clean JS syntax to make parseable JSON
-        const cleanJson = jsonStr
-          .replace(/([a-zA-Z0-9]+)\s*:/g, '"$1":')
-          .replace(/'/g, '"')
-          .replace(/,\s*}/g, '}')
-          .replace(/,\s*]/g, ']');
-        configObj = JSON.parse(cleanJson);
-      } else {
-        configObj = JSON.parse(inputArea);
-      }
+      // Robust key-value extraction using regex to handle standard JS objects, comments, and URLs
+      const extractKey = (key) => {
+        const regex = new RegExp(`${key}\\s*:\\s*["'\`]([^"'\`]+)["'\`]`);
+        const match = inputArea.match(regex);
+        return match ? match[1] : null;
+      };
 
-      if (!configObj || !configObj.apiKey || !configObj.projectId) {
+      const apiKey = extractKey("apiKey");
+      const projectId = extractKey("projectId");
+      const authDomain = extractKey("authDomain");
+      const storageBucket = extractKey("storageBucket");
+      const messagingSenderId = extractKey("messagingSenderId");
+      const appId = extractKey("appId");
+
+      if (!apiKey || !projectId) {
+        // Fallback: try raw JSON parsing if regex didn't match
+        try {
+          const configObj = JSON.parse(inputArea);
+          if (configObj.apiKey && configObj.projectId) {
+            localStorage.setItem('eco_firebase_config', JSON.stringify(configObj));
+            firebaseConfig = configObj;
+            await initializeFirebase(firebaseConfig);
+            return;
+          }
+        } catch (e) {
+          // ignore JSON parse error
+        }
         throw new Error("Missing critical keys");
       }
+
+      const configObj = {
+        apiKey,
+        projectId,
+        authDomain: authDomain || `${projectId}.firebaseapp.com`,
+        storageBucket: storageBucket || `${projectId}.appspot.com`,
+        messagingSenderId: messagingSenderId || "",
+        appId: appId || ""
+      };
 
       // Save to localStorage
       localStorage.setItem('eco_firebase_config', JSON.stringify(configObj));
