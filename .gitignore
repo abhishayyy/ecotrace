@@ -1,0 +1,22 @@
+# Firebase config with credentials (DO NOT COMMIT)
+firebase-config.js
+
+# Node modules (in case packages are installed)
+node_modules/
+
+# Local env files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

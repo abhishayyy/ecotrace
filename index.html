@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EcoTrace - Carbon Footprint Tracker</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Glows -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+  <div class="bg-glow bg-glow-3"></div>
+
+  <!-- FIREBASE SETUP WIZARD OVERLAY -->
+  <div id="firebase-wizard" class="overlay active hidden">
+    <div class="wizard-card glass-panel">
+      <div class="wizard-header">
+        <div class="brand">
+          <span class="logo-icon">🌱</span>
+          <h2>Setup EcoTrace</h2>
+        </div>
+        <p class="subtitle">Multi-device sync requires a connection to a Firebase project.</p>
+      </div>
+
+      <div class="wizard-body">
+        <div class="steps-container">
+          <div class="step active">
+            <span class="step-num">1</span>
+            <span class="step-text">Firebase Console</span>
+          </div>
+          <div class="step">
+            <span class="step-num">2</span>
+            <span class="step-text">Enable Auth & DB</span>
+          </div>
+          <div class="step">
+            <span class="step-num">3</span>
+            <span class="step-text">Paste Config</span>
+          </div>
+        </div>
+
+        <div class="wizard-tab active" id="wizard-step-1">
+          <h3>Create a Free Firebase Project</h3>
+          <p>EcoTrace uses Firebase for secure user authentication and cloud syncing across your devices.</p>
+          <ol class="setup-list">
+            <li>Go to the <a href="https://console.firebase.google.com/" target="_blank" class="link">Firebase Console</a>.</li>
+            <li>Click <strong>Add Project</strong>, name it "EcoTrace", and click through to create it.</li>
+            <li>Once loaded, select the <strong>Web App Icon (&lt;/&gt;)</strong> on the dashboard to register a new web application.</li>
+          </ol>
+          <div class="wizard-actions">
+            <button class="btn btn-primary next-step">Next Step &rarr;</button>
+            <button class="btn btn-secondary bypass-wizard">Run Offline Demo Mode</button>
+          </div>
+        </div>
+
+        <div class="wizard-tab" id="wizard-step-2">
+          <h3>Enable Authentication & Firestore</h3>
+          <p>Activate the required serverless features inside your Firebase project dashboard:</p>
+          <ul class="setup-list">
+            <li><strong>Authentication:</strong> Go to Build &rarr; Authentication, click "Get Started", enable the <strong>Email/Password</strong> provider.</li>
+            <li><strong>Firestore:</strong> Go to Build &rarr; Firestore Database, click "Create Database", select "Start in <strong>Test Mode</strong>" (allows quick testing), and complete setup.</li>
+          </ul>
+          <div class="wizard-actions">
+            <button class="btn btn-secondary prev-step">&larr; Back</button>
+            <button class="btn btn-primary next-step">Next Step &rarr;</button>
+          </div>
+        </div>
+
+        <div class="wizard-tab" id="wizard-step-3">
+          <h3>Paste Configuration Details</h3>
+          <p>Paste your web app configuration snippet or JSON object below. We will use this to connect your client app to the database.</p>
+          <div class="form-group">
+            <label for="firebase-config-input">Firebase Configuration Object</label>
+            <textarea id="firebase-config-input" placeholder='const firebaseConfig = {&#10;  apiKey: "AIzaSy...",&#10;  authDomain: "...",&#10;  ...&#10;};'></textarea>
+            <span class="error-text" id="wizard-config-error">Invalid Firebase config object configuration. Make sure it contains apiKey and projectId.</span>
+          </div>
+          <div class="wizard-actions">
+            <button class="btn btn-secondary prev-step">&larr; Back</button>
+            <button class="btn btn-primary" id="save-wizard-config">Save & Connect</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTHENTICATION OVERLAY (Login/Signup) -->
+  <div id="auth-overlay" class="overlay hidden">
+    <div class="auth-card glass-panel">
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="btn-login-tab">Sign In</button>
+        <button class="auth-tab-btn" id="btn-signup-tab">Register</button>
+      </div>
+
+      <div class="auth-content">
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form active">
+          <h2>Welcome Back</h2>
+          <p class="form-desc">Sign in to sync your data across devices.</p>
+          
+          <div class="form-group">
+            <label for="login-email">Email Address</label>
+            <input type="email" id="login-email" required placeholder="you@example.com">
+          </div>
+          
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" required placeholder="••••••••">
+          </div>
+
+          <p class="error-text auth-error" id="login-error"></p>
+          
+          <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+        </form>
+
+        <!-- Signup Form -->
+        <form id="signup-form" class="auth-form">
+          <h2>Create Account</h2>
+          <p class="form-desc">Start tracking and reducing your carbon footprint today.</p>
+          
+          <div class="form-group">
+            <label for="signup-email">Email Address</label>
+            <input type="email" id="signup-email" required placeholder="you@example.com">
+          </div>
+          
+          <div class="form-group">
+            <label for="signup-password">Password</label>
+            <input type="password" id="signup-password" required minlength="6" placeholder="At least 6 characters">
+          </div>
+
+          <div class="form-group">
+            <label for="signup-password-confirm">Confirm Password</label>
+            <input type="password" id="signup-password-confirm" required minlength="6" placeholder="At least 6 characters">
+          </div>
+
+          <p class="error-text auth-error" id="signup-error"></p>
+          
+          <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+          <button type="button" class="btn-link" id="btn-offline-mode">Continue in Offline Mode</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP CONTAINER -->
+  <div class="app-layout">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar glass-panel">
+      <div class="brand">
+        <span class="logo">🌱</span>
+        <h1>EcoTrace</h1>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="dashboard">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+          Dashboard
+        </button>
+        <button class="nav-item" data-tab="calculator">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4 6h-2v2h2v2h-2v2h-2v-2H9v-2h2V9H9V7h2V5h2v2h2v2zm2 10H7v-2h10v2z"/></svg>
+          Calculator
+        </button>
+        <button class="nav-item" data-tab="actions">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          Daily Actions
+        </button>
+        <button class="nav-item" data-tab="quiz">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 16h-2v-2h2v2zm1.07-7.75l-.9.92C12.45 11.9 12 12.5 12 14h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+          Eco Quiz
+        </button>
+        <button class="nav-item" data-tab="achievements">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v3c0 5.5 4.5 10 10 10h.5c.3 0 .5-.2.5-.5v-1.8c3.2-.8 5.6-3.4 5.9-6.7h.1c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-14 5V7h2v3c0 2.2-1.8 4-2 4h-.1c-.9 0-1.9-.8-1.9-2zm14-3v3c0 1.2-1 2-1.9 2H17v-5h2z"/></svg>
+          Achievements
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          Settings
+        </button>
+      </nav>
+
+      <!-- User Card Footer -->
+      <div class="user-footer">
+        <div class="user-info">
+          <div class="avatar">👤</div>
+          <div class="info-texts">
+            <span class="user-name" id="user-display-name">Offline Mode</span>
+            <span class="sync-status" id="user-sync-status">Offline</span>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn btn-logout hidden">
+          <svg class="logout-icon" viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- TAB: DASHBOARD -->
+      <section id="tab-dashboard" class="content-tab active">
+        <header class="section-header">
+          <div>
+            <h2>Welcome back, <span class="header-user-name">Guest</span></h2>
+            <p>Here is your sustainability status for today.</p>
+          </div>
+          <div class="streak-badge">
+            <span class="streak-icon">🔥</span>
+            <span class="streak-value" id="dash-streak">0</span> Day Streak
+          </div>
+        </header>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="card glass-panel kpi-card">
+            <div class="card-icon font-size-xl">🚗</div>
+            <div class="card-details">
+              <h3>Annual Carbon Footprint</h3>
+              <p class="value" id="kpi-carbon-footprint">0.00 <span class="unit">Tons CO₂e</span></p>
+              <span class="trend neutral" id="kpi-carbon-vs-avg">No data calculated</span>
+            </div>
+          </div>
+
+          <div class="card glass-panel kpi-card">
+            <div class="card-icon font-size-xl">🌱</div>
+            <div class="card-details">
+              <h3>Today's Carbon Avoided</h3>
+              <p class="value" id="kpi-carbon-avoided">0.0 <span class="unit">kg CO₂e</span></p>
+              <span class="trend success" id="kpi-cumulative-saved">0 kg total avoided</span>
+            </div>
+          </div>
+
+          <div class="card glass-panel kpi-card">
+            <div class="card-icon font-size-xl">🎯</div>
+            <div class="card-details">
+              <h3>Annual Carbon Budget Target</h3>
+              <p class="value" id="kpi-target-budget">5.00 <span class="unit">Tons CO₂e</span></p>
+              <span class="trend success" id="kpi-carbon-budget-status">Below Limit</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Charts and Actions -->
+        <div class="dashboard-grid">
+          
+          <!-- Chart Card -->
+          <div class="card glass-panel chart-card col-span-2">
+            <div class="card-header-flex">
+              <h3>Your Emission Sources</h3>
+              <span class="badge badge-teal">Calculated Annual breakdown</span>
+            </div>
+            <div class="chart-content">
+              <div class="chart-container">
+                <canvas id="emission-pie-chart"></canvas>
+              </div>
+              <div class="chart-legends" id="chart-legends-container">
+                <!-- Dynamic Legends -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Tip Card -->
+          <div class="card glass-panel tip-card">
+            <h3>Personalized Recommendations</h3>
+            <div class="tip-body" id="rec-container">
+              <p class="empty-rec">Calculate your carbon footprint first to unlock personalized sustainability recommendations.</p>
+            </div>
+          </div>
+          
+        </div>
+
+        <!-- Budget Progress Tracker -->
+        <div class="card glass-panel budget-progress-section">
+          <div class="budget-progress-header">
+            <h3>Annual Target Alignment</h3>
+            <span class="budget-ratio" id="budget-progress-ratio">0% of annual budget</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="budget-progress-bar" style="width: 0%;"></div>
+          </div>
+          <p class="budget-explanation" id="budget-progress-desc">Calculate your footprint to see where you stand against the average target budget.</p>
+        </div>
+
+      </section>
+
+      <!-- TAB: CALCULATOR -->
+      <section id="tab-calculator" class="content-tab">
+        <header class="section-header">
+          <div>
+            <h2>Carbon Footprint Calculator</h2>
+            <p>Determine your annual carbon footprint through a few simple steps. Be as accurate as possible!</p>
+          </div>
+        </header>
+
+        <div class="calculator-container card glass-panel">
+          <!-- Wizard Tabs -->
+          <div class="calc-tabs">
+            <button class="calc-tab-btn active" data-step="calc-transport">🚗 Transportation</button>
+            <button class="calc-tab-btn" data-step="calc-energy">⚡ Energy</button>
+            <button class="calc-tab-btn" data-step="calc-diet">🍔 Diet & Food</button>
+            <button class="calc-tab-btn" data-step="calc-shopping">🛍️ Shopping & Waste</button>
+          </div>
+
+          <form id="calculator-form">
+            <!-- Step 1: Transport -->
+            <div class="calc-step active" id="calc-transport">
+              <h3>Transportation Habits</h3>
+              <p class="step-desc">Travel is often the largest source of personal carbon emissions. Let's estimate yours.</p>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-car-type">Primary Car Engine Type</label>
+                  <select id="input-car-type" class="form-select">
+                    <option value="none">I don't drive / No car</option>
+                    <option value="petrol">Petrol / Gasoline</option>
+                    <option value="diesel">Diesel</option>
+                    <option value="hybrid">Hybrid (HEV / PHEV)</option>
+                    <option value="electric">Electric Vehicle (EV)</option>
+                  </select>
+                </div>
+
+                <div class="form-group" id="group-car-dist">
+                  <label for="input-car-distance">Annual Driving Distance (km / year)</label>
+                  <input type="number" id="input-car-distance" class="form-input" min="0" value="0">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-public-distance">Public Transport Distance (Bus/Train) (km / year)</label>
+                  <input type="number" id="input-public-distance" class="form-input" min="0" value="0">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-flights-short">Short-Haul Flights (Under 3 hrs) (Flights / year)</label>
+                  <input type="number" id="input-flights-short" class="form-input" min="0" value="0">
+                  <span class="input-tip">e.g., Regional trips, domestic flights. (~700 km average per flight)</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="input-flights-long">Long-Haul Flights (Over 3 hrs) (Flights / year)</label>
+                  <input type="number" id="input-flights-long" class="form-input" min="0" value="0">
+                  <span class="input-tip">e.g., International flights. (~5000 km average per flight)</span>
+                </div>
+              </div>
+
+              <div class="step-actions">
+                <button type="button" class="btn btn-primary next-calc-step">Next Step &rarr;</button>
+              </div>
+            </div>
+
+            <!-- Step 2: Energy -->
+            <div class="calc-step" id="calc-energy">
+              <h3>Household Energy Usage</h3>
+              <p class="step-desc">Your home's heating, cooling, and electricity use generates significant emissions.</p>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-electricity">Monthly Electricity Consumption (kWh / month)</label>
+                  <input type="number" id="input-electricity" class="form-input" min="0" value="300">
+                  <span class="input-tip">Check your utility bill. Average household uses 200–500 kWh.</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="input-grid-cleanliness">Electricity Grid Cleanliness</label>
+                  <select id="input-grid-cleanliness" class="form-select">
+                    <option value="average">Standard Grid Mix (Coal/Gas/Renewables Mix)</option>
+                    <option value="coal">Coal Dominated Grid (High Emission)</option>
+                    <option value="clean">100% Renewable / Green Tariff (Zero Emission)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-heating-source">Primary Heating Energy Source</label>
+                  <select id="input-heating-source" class="form-select">
+                    <option value="none">No heating needed / District heating</option>
+                    <option value="gas">Natural Gas</option>
+                    <option value="oil">Heating Oil / LPG</option>
+                    <option value="electric">Electricity (Heat Pump or Electric Radiator)</option>
+                  </select>
+                </div>
+
+                <div class="form-group" id="group-heating-amt">
+                  <label for="input-heating-amount">Monthly Heating Fuel Bills ($ / month)</label>
+                  <input type="number" id="input-heating-amount" class="form-input" min="0" value="50">
+                </div>
+              </div>
+
+              <div class="step-actions">
+                <button type="button" class="btn btn-secondary prev-calc-step">&larr; Back</button>
+                <button type="button" class="btn btn-primary next-calc-step">Next Step &rarr;</button>
+              </div>
+            </div>
+
+            <!-- Step 3: Diet -->
+            <div class="calc-step" id="calc-diet">
+              <h3>Dietary Consumption</h3>
+              <p class="step-desc">The environmental footprint of food depends largely on animal product consumption.</p>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-diet-type">Diet Profile</label>
+                  <select id="input-diet-type" class="form-select">
+                    <option value="heavy-meat">Heavy Meat Eater (Red meat almost daily)</option>
+                    <option value="meat">Average Meat Eater (Poultry/beef a few times a week)</option>
+                    <option value="low-meat">Low Meat / Pescatarian (Fish or rare meat consumption)</option>
+                    <option value="vegetarian">Vegetarian (No meat, but eats dairy/eggs)</option>
+                    <option value="vegan">Vegan (Strictly plant-based)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="input-organic-food">Do you buy organic / locally sourced food?</label>
+                  <select id="input-organic-food" class="form-select">
+                    <option value="never">No / Rarely</option>
+                    <option value="half">Sometimes / Half of the time</option>
+                    <option value="always">Always / Mostly</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-food-waste">Household Food Waste Profile</label>
+                  <select id="input-food-waste" class="form-select">
+                    <option value="high">High waste (Throw away lots of leftovers/spoiled food)</option>
+                    <option value="average">Average waste (Standard food loss)</option>
+                    <option value="low">Zero waste / Compost (Actively minimize waste & compost)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="step-actions">
+                <button type="button" class="btn btn-secondary prev-calc-step">&larr; Back</button>
+                <button type="button" class="btn btn-primary next-calc-step">Next Step &rarr;</button>
+              </div>
+            </div>
+
+            <!-- Step 4: Shopping -->
+            <div class="calc-step" id="calc-shopping">
+              <h3>Shopping Habits & Consumer Goods</h3>
+              <p class="step-desc">Manufacturing products requires massive emissions. Let's estimate your buying habits.</p>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-shopping-clothes">Monthly Clothes Shopping Spend ($ / month)</label>
+                  <input type="number" id="input-shopping-clothes" class="form-input" min="0" value="50">
+                </div>
+
+                <div class="form-group">
+                  <label for="input-shopping-electronics">Annual Electronics Spend ($ / year)</label>
+                  <input type="number" id="input-shopping-electronics" class="form-input" min="0" value="500">
+                  <span class="input-tip">Phones, laptops, TVs, smart devices.</span>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="input-recycling">Household Recycling Habits</label>
+                  <select id="input-recycling" class="form-select">
+                    <option value="none">We do not recycle</option>
+                    <option value="some">Recycle some materials (paper/plastic)</option>
+                    <option value="full">Recycle everything possible & recycle glass/tin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="step-actions">
+                <button type="button" class="btn btn-secondary prev-calc-step">&larr; Back</button>
+                <button type="submit" class="btn btn-primary" id="btn-calc-submit">Calculate & Sync &rarr;</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- TAB: DAILY ACTIONS -->
+      <section id="tab-actions" class="content-tab">
+        <header class="section-header">
+          <div>
+            <h2>Daily Actions & Offsets</h2>
+            <p>Log the eco-friendly actions you did today. Cumulative savings will offset your annual footprint!</p>
+          </div>
+        </header>
+
+        <div class="actions-tracker-layout">
+          <!-- Action List -->
+          <div class="card glass-panel list-card">
+            <h3>Check off what you did today</h3>
+            <p class="tracker-date-indicator" id="actions-date-today">Monday, June 8</p>
+
+            <div class="action-checklist" id="actions-list-container">
+              <!-- Actions rendered dynamically in app.js -->
+            </div>
+            
+            <div class="actions-summary-box">
+              <div class="saved-today-total">
+                <span class="label">Carbon Avoided Today:</span>
+                <span class="value success" id="today-avoided-count">0.0 kg CO₂e</span>
+              </div>
+              <button class="btn btn-primary" id="btn-save-actions">Log Today's Savings</button>
+            </div>
+          </div>
+
+          <!-- Progress and History -->
+          <div class="card glass-panel history-card">
+            <h3>Logged Actions History</h3>
+            <div class="history-list" id="logged-history-container">
+              <p class="empty-history">No logged activity yet. Mark your daily habits and click "Log Today's Savings" above to build a list.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: ECO QUIZ -->
+      <section id="tab-quiz" class="content-tab">
+        <header class="section-header">
+          <div>
+            <h2>Educational Sustainability Quiz</h2>
+            <p>Test your knowledge on carbon emissions, climate change, and sustainability practices.</p>
+          </div>
+        </header>
+
+        <div class="quiz-container card glass-panel">
+          <div id="quiz-intro">
+            <span class="quiz-huge-icon">🎓</span>
+            <h3>Are you a Sustainability Expert?</h3>
+            <p>Take this 5-question interactive quiz to debunk common carbon myths and see how much you actually know about global emissions.</p>
+            <button class="btn btn-primary" id="btn-start-quiz">Start Quiz</button>
+          </div>
+
+          <div id="quiz-question-box" class="hidden">
+            <div class="quiz-progress-header">
+              <span class="quiz-q-num" id="quiz-q-indicator">Question 1 of 5</span>
+              <span class="quiz-score" id="quiz-score-indicator">Score: 0</span>
+            </div>
+            <div class="progress-bar-container mini">
+              <div class="progress-bar-fill" id="quiz-progress-fill" style="width: 20%;"></div>
+            </div>
+
+            <h3 class="quiz-question-text" id="quiz-question-text">Loading question text...</h3>
+            
+            <div class="quiz-options-list" id="quiz-options-list">
+              <!-- Dynamically rendered options buttons -->
+            </div>
+
+            <div class="quiz-feedback-box hidden" id="quiz-feedback-box">
+              <div class="feedback-indicator">
+                <span class="icon" id="quiz-feedback-icon">✓</span>
+                <span class="status" id="quiz-feedback-title">Correct!</span>
+              </div>
+              <p class="explanation" id="quiz-feedback-text">Explanation text here.</p>
+              <button class="btn btn-primary" id="btn-next-quiz-q">Next Question &rarr;</button>
+            </div>
+          </div>
+
+          <div id="quiz-results" class="hidden">
+            <span class="quiz-huge-icon" id="quiz-results-icon">🏆</span>
+            <h3>Quiz Completed!</h3>
+            <p class="quiz-final-score-text">You scored <span class="score-bold" id="quiz-final-score">0</span> out of <span id="quiz-max-score">5</span>.</p>
+            <p class="quiz-desc" id="quiz-final-desc">Awesome job! You have unlocked the "Green Thinker" badge.</p>
+            <button class="btn btn-primary" id="btn-restart-quiz">Retake Quiz</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: ACHIEVEMENTS -->
+      <section id="tab-achievements" class="content-tab">
+        <header class="section-header">
+          <div>
+            <h2>Gamified Achievements</h2>
+            <p>Earn badges by maintaining daily streaks, calculating your emissions, and saving CO₂!</p>
+          </div>
+        </header>
+
+        <div class="badges-grid" id="badges-grid-container">
+          <!-- Badges dynamically rendered by app.js -->
+        </div>
+      </section>
+
+      <!-- TAB: SETTINGS -->
+      <section id="tab-settings" class="content-tab">
+        <header class="section-header">
+          <div>
+            <h2>Account & App Settings</h2>
+            <p>Configure targets, export data, and manage your Firebase credentials.</p>
+          </div>
+        </header>
+
+        <div class="settings-grid">
+          
+          <!-- Firebase Credentials Config Card -->
+          <div class="card glass-panel">
+            <h3>Firebase Sync Configuration</h3>
+            <p class="card-desc">Edit your credentials here to sync database updates to your custom Firestore instance.</p>
+            
+            <div class="form-group">
+              <label for="settings-firebase-apiKey">API Key</label>
+              <input type="text" id="settings-firebase-apiKey" class="form-input">
+            </div>
+
+            <div class="form-group">
+              <label for="settings-firebase-projectId">Project ID</label>
+              <input type="text" id="settings-firebase-projectId" class="form-input">
+            </div>
+
+            <div class="form-group">
+              <label for="settings-firebase-authDomain">Auth Domain</label>
+              <input type="text" id="settings-firebase-authDomain" class="form-input">
+            </div>
+
+            <div class="settings-actions">
+              <button class="btn btn-primary" id="btn-save-settings-firebase">Save Config & Reconnect</button>
+              <button class="btn btn-secondary" id="btn-disconnect-firebase">Disconnect Auth</button>
+            </div>
+          </div>
+
+          <!-- Targets & Defaults Card -->
+          <div class="card glass-panel">
+            <h3>Personal Target Budget</h3>
+            <p class="card-desc">Set your annual greenhouse gas emissions target. The average per capita emissions vary from 4.0 tons in Europe to 15.0 tons in the US.</p>
+            
+            <div class="form-group">
+              <label for="settings-target-budget">Annual Carbon Target (Tons CO₂e)</label>
+              <input type="number" id="settings-target-budget" class="form-input" min="0.5" step="0.1" value="5.0">
+            </div>
+
+            <div class="form-group">
+              <label for="settings-regional-electricity">Regional Grid Emission Factor (kg CO₂e per kWh)</label>
+              <input type="number" id="settings-regional-electricity" class="form-input" min="0" max="2" step="0.01" value="0.40">
+            </div>
+
+            <div class="settings-actions">
+              <button class="btn btn-primary" id="btn-save-settings-targets">Save Targets</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- Load app.js as Module to enable imports -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
