@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "node test_calculations.js"
+    "test": "node test_calculations.js",
+    "dev": "npx -y http-server ."
   }
 }
